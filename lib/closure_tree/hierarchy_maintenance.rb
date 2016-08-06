@@ -59,9 +59,10 @@ module ClosureTree
       true # don't prevent destruction
     end
 
-    def rebuild!(called_by_rebuild = false)
+    def rebuild!(called_by_rebuild = false, skip_delete = false)
       _ct.with_advisory_lock do
-        delete_hierarchy_references unless @was_new_record
+
+        delete_hierarchy_references if !@was_new_record && !skip_delete
         hierarchy_class.create!(:ancestor => self, :descendant => self, :generations => 0)
         unless root?
           _ct.connection.execute <<-SQL.strip_heredoc
@@ -79,7 +80,7 @@ module ClosureTree
           _ct_reorder_siblings if !called_by_rebuild
         end
 
-        children.each { |c| c.rebuild!(true) }
+        children.each { |c| c.rebuild!(true, skip_delete) }
 
         _ct_reorder_children if _ct.order_is_numeric? && children.present?
       end
